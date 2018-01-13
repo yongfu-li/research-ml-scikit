@@ -1,18 +1,5 @@
 """
 Using Scikit library to build all types of classifiers & regression
-1.1 Generalized Linear Model (Partial)
-1.2 Linear and Quadratic Discriminant Analysis
-1.3 Kernel ridge regression
-1.4 Support Vector Machines
-1.5 Stochastic Gradient Descent
-1.6 Nearest Neighbors
-1.7 Gaussian Processes
-1.8 Cross decomposition
-1.9 Naive Bayes (Completed)
-1.10 Decision Trees (Completed)
-1.11 Ensemble methods
-1.12 Multiclass and multilabel algorithm
-1.13 Feature Selection
 
 
 Ref: H. Zhang (2004). The optimality of Naive Bayes. Proc. FLAIRS.
@@ -27,6 +14,9 @@ import os;
 import argparse;
 import logging;
 import numpy as np;
+from tqdm import tqdm;
+import dill;
+
 
 def main(*args, **kwargs):
     """
@@ -47,16 +37,17 @@ def main(*args, **kwargs):
     parser.add_argument('--test_size', \
         dest = 'test_size', \
         default = 0.2, \
-        help = 'Percentage of data are used for validation');
+        help = 'Percentage of data used for validation');
     parser.add_argument('--mode', \
         dest = 'mode', \
-        choices = ['train', 'predict', 'train_predict'], \
-        default = 'train_predict', \
+        choices = ['train', 'test', 'train_test'], \
+        default = 'train_test', \
         required = True, \
         help = 'Different functions of the program');
     parser.add_argument('--model', \
         dest = 'model', \
         choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', \
+            'support_vector_machine', 'SVC', \
             'gaussian_process', 'GaussianProcessRegressor', 'GaussianProcessClassifier', \
             'tree', 'DecisionTreeRegressor', 'DecisionTreeClassifier', \
             'naive_bayes', 'GaussianNB', 'MultinomialNB','BernoulliNB'], \
@@ -91,20 +82,35 @@ def main(*args, **kwargs):
     obj = Model(model = args.model, dataset = data, output_dir = args.output_dir);
     if args.mode == 'train':
         obj.train();
-        obj.save(args.model_file);
-    elif args.mode == 'predict':
-        obj.load(args.model_file);
+        obj.save_model(os.path.join(args.output_dir,'model.pkl'));
+    elif args.mode == 'test':
+        obj.load_model(args.model_file);
         obj.predict();
-    elif args.mode == 'train_predict':
+    elif args.mode == 'train_test':
         obj.train();
-        obj.save(args.model_file);
+        obj.save_model(os.path.join(args.output_dir,'model.pkl'));
         obj.predict();
+    output_file_setting = os.path.join(args.output_dir, 'setting.pkl');
+    save_object(obj, output_file_setting);
     return;
+
+def save_object(obj, filename):
+    """
+    """
+    with open(filename, 'wb') as fw:
+        dill.dump(obj, fw);
+
+def load_object(filename):
+    """
+    """
+    with open(filename, 'rb') as fp:
+        obj = dill.load(fp);
+    return obj;
 
 class Dataset(object):
     """
     """
-    def __init__(self, mode, test_size, output_dir):
+    def __init__(self, mode, test_size = 0.2, output_dir = './work'):
         """
         TODO: Plot data
         """
@@ -143,11 +149,37 @@ class Dataset(object):
 
 class Model(object):
     """
+    1.1 Generalized Linear Model (Partial)
+    1.2 Linear and Quadratic Discriminant Analysis
+    1.3 Kernel ridge regression
+    1.4 Support Vector Machines 
+        - SVC
+        - NuSVC
+        - LinearSVC
+    1.5 Stochastic Gradient Descent
+    1.6 Nearest Neighbors
+        - KNeighborsRegressor
+        - RadiusNeighborsRegressor
+    1.7 Gaussian Processes 
+        - GaussianProcessClassifier
+        - GaussianProcessRegressor
+    1.8 Cross decomposition
+    1.9 Naive Bayes
+        - GaussianNB
+        - MultinomialNB
+        - BernoulliNB
+    1.10 Decision Trees 
+        - DecisionTreeClassifier
+        - DecisionTreeRegressor 
+    1.11 Ensemble methods
+    1.12 Multiclass and multilabel algorithm
+    1.13 Feature Selection
     """
-    def __init__(self, model, dataset, output_dir):
+    
+    def __init__(self, model, dataset, output_dir = './work'):
         """
         """
-        self.logger = logging.getLogger('Model');
+        self.logger = logging.getLogger('Model-Input');
         self.logger.info('Initialize classifier/regression model');
         self.output_dir = output_dir;
         self.model = model;
@@ -157,31 +189,24 @@ class Model(object):
         self.y_test = dataset.y_test;
         return;
 
-    def save(self, model_file):
-        """
-        """
-        self.logger.info('Saving model');
-        from sklearn.externals import joblib;
-        joblib.dump(self.clf, model_file);
-        return model_file;
-
-    def load(self):
-        """
-        """
-        self.logger.info('Loading model');
-        from sklearn.externals import joblib;
-        joblib.dump(self.clf, model_file); 
-        return self.clf;
-
     def train(self):
         """
         """
+        self.logger = logging.getLogger('Model-Training');
         if self.model == 'Ridge':
             self.Ridge(x = self.x_train, y = self.y_train);
         elif self.model == 'RidgeCV':
             self.RidgeCV(x = self.x_train, y = self.y_train);
         elif self.model == 'LinearRegression':
             self.LinearRegression(x = self.x_train, y = self.y_train);
+        elif self.model == 'Lasso':
+            self.Lasso(x = self.x_train, y = self.y_train);
+        elif self.model == 'SVC':
+            self.SVC(x = self.x_train, y = self.y_train);
+        elif self.model == 'NuSVC':
+            self.NuSVC(x = self.x_train, y = self.y_train);
+        elif self.model == 'LinearSVC':
+            self.LinearSVC(x = self.x_train, y = self.y_train);
         elif self.model == 'DecisionTreeClassifier':
             self.DecisionTreeClassifier(x = self.x_train, y = self.y_train, \
                 output_dir = self.output_dir);
@@ -197,7 +222,6 @@ class Model(object):
             self.MultinomialNB(x = self.x_train, y = self.y_train);
         elif self.model == 'BernoulliNB':
             self.BernoulliNB(x = self.x_train, y = self.y_train);
-        self.get_score('Training', x = self.x_train, y = self.y_train);
         return;
 
 
@@ -209,7 +233,8 @@ class Model(object):
         the coefficients w of the linear model in its coef_ member.
         """
         self.logger.info('Perform Linear Regression');
-        from sklearn import linear_model;
+        from sklearn import linear_modelanalytic;
+        self.type = 'regression';
         self.clf = linear_model.LinearRegression();
         self.clf.fit(x, y);
         return self.clf;
@@ -224,6 +249,7 @@ class Model(object):
         """
         self.logger.info('Perform Ridge Regression');
         from sklearn import linear_model;
+        self.type = 'regression';        
         self.clf = linear_model.Ridge(alpha = .5);
         self.clf.fit(x, y);
         return self.clf;
@@ -238,6 +264,7 @@ class Model(object):
         """
         self.logger.info('Perform RidgeCV Regression');
         from sklearn import linear_model;
+        self.type = 'regression';
         self.clf = linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0]);
         self.clf.fit(x, y);
         return self.clf;
@@ -253,7 +280,49 @@ class Model(object):
         """
         self.logger.info('Perform Lasso Regression');
         from sklearn import linear_model;
+        self.type = 'regression';
         self.clf = linear_model.Lasso(alpha = 0.1);
+        self.clf.fit(x, y);
+        return self.clf;
+
+    
+    def SVC(self, x, y):
+        """
+        Support Vector Machine Classifier
+        Support Vector Machine for Regression implemented using libsvm.
+        """
+        self.logger.info('Perform SVC Classifier');
+        from sklearn.svm import SVC;
+        self.type = 'classification';
+        self.clf = SVC();
+        self.clf.fit(x, y);
+        return self.clf;
+
+
+    def NuSVC(self, x, y):
+        """
+        Nu-Support Vector Machine Classifier
+        Similar to SVC but uses a parameter to control the number of support vectors.
+        """
+        self.logger.info('Perform NuSVC Classifier');
+        from sklearn.svm import NuSVC;
+        self.type = 'classification';
+        self.clf = NuSVC();
+        self.clf.fit(x, y);
+        return self.clf;
+
+
+    def LinearSVC(self, x, y):
+        """
+        Linear-Support Vector Machine Classifier
+        Similar to SVC with parameter kernel=’linear’, but implemented in terms of liblinear 
+        rather than libsvm, so it has more flexibility in the choice of penalties and loss 
+        functions and should scale better to large numbers of samples.
+        """
+        self.logger.info('Perform LinearSVC Classifier');
+        from sklearn.svm import LinearSVC;
+        self.type = 'classification';
+        self.clf = LinearSVC();
         self.clf.fit(x, y);
         return self.clf;
 
@@ -296,6 +365,7 @@ class Model(object):
         """
         self.logger.info('Perform Decision Tree Classifier');
         from sklearn import tree;
+        self.type = 'classification';
         self.clf = tree.DecisionTreeClassifier();
         self.clf.fit(x, y);
         
@@ -312,8 +382,9 @@ class Model(object):
         Tree Regression
         Decision trees can also be applied to regression problems.
         """
-        self.logger.info('Perform Decision Tree Classifier');
+        self.logger.info('Perform Decision Tree Regression');
         from sklearn import tree;
+        self.type = 'regression';
         self.clf = tree.DecisionTreeRegressor();
         self.clf.fit(x, y);
         return self.clf;      
@@ -325,8 +396,9 @@ class Model(object):
         BernoulliNB implements the naive Bayes training and classification algorithms 
         for data that is distributed according to multivariate Bernoulli distributions
         """
-        self.logger.info('Perform BernoulliNB training');
+        self.logger.info('Perform BernoulliNB Classifier');
         from sklearn.naive_bayes import BernoulliNB;
+        self.type = 'classification';
         self.clf = BernoulliNB();
         self.clf.fit(x, y);
         return self.clf;
@@ -339,8 +411,9 @@ class Model(object):
         Bayes variants used in text classification (where the data are typically represented 
         as word vector counts, although tf-idf vectors are also known to work well in practice).
         """
-        self.logger.info('Perform MultinomialNB training');
+        self.logger.info('Perform MultinomialNB Classifier');
         from sklearn.naive_bayes import MultinomialNB;
+        self.type = 'classification';
         self.clf = MultinomialNB();
         self.clf.fit(x,y);
         return self.clf;
@@ -352,45 +425,193 @@ class Model(object):
         GaussianNB implements the Gaussian Naive Bayes algorithm for classification. 
         The likelihood of the features is assumed to be Gaussian.
         """
-        self.logger.info('Perform GaussianNB training');
+        self.logger.info('Perform GaussianNB Classifier');
         from sklearn.naive_bayes import GaussianNB;
+        self.type = 'classification';
         self.clf = GaussianNB();
         self.clf.fit(x,y);
         return self.clf;
 
 
-    def get_score(self, desc, x, y):
+    def get_score(self, x, y):
         """
         Print the coefficient of determination R^2 of the prediction.
         """
+        self.logger = logging.getLogger('Model-Accuracy');        
         self.score = self.clf.score(x, y);
-        self.logger.info(str(desc) + ' Score(R^2): ' + str(self.score));
+        self.logger.info('Score (R^2 - coefficient of determination): ' + str(self.score));        
         return self.score;
 
-    def get_loss(self, y_ref, y_pred):
+
+    def explained_variance_score(self, y_ref, y_pred):
+        """
+        Explained variance regression score function
+        Best possible score is 1.0, lower values are worse.
+        """
+        import sklearn.metrics as metrics;
+        self.evs_value = metrics.explained_variance_score( \
+            y_true = y_ref, \
+            y_pred = y_pred, \
+            multioutput = 'uniform_average');
+        self.logger.info('Explained Variance Regression (Max 1.0): ' + str(self.evs_value));
+        return self.evs_value;
+
+
+    def mean_absolute_error(self, y_ref, y_pred):
+        """
+        Mean absolute error regression loss
+        """
+        import sklearn.metrics as metrics;
+        self.mae_value = metrics.mean_absolute_error( \
+            y_true = y_ref, \
+            y_pred = y_pred, \
+            sample_weight = None, \
+            multioutput = 'uniform_average');
+        self.logger.info('Mean Absolute Error: ' + str(self.mae_value));
+        return self.mae_value;
+
+
+    def mean_squared_error(self, y_ref, y_pred):
+        """
+        Mean squared error regression loss
+        """
+        import sklearn.metrics as metrics;
+        self.mse_value = metrics.mean_squared_error( \
+            y_true = y_ref, \
+            y_pred = y_pred, \
+            sample_weight = None, \
+            multioutput = 'uniform_average');
+        self.logger.info('Mean Squared Error (L2 Loss): ' + str(self.mse_value));
+        return self.mse_value;
+
+
+    def mean_squared_log_error(self, y_ref, y_pred):
+        """
+        Mean squared logarithmic error regression loss
+        """
+        import sklearn.metrics as metrics;
+        self.msle_value = -1;
+        try:
+            self.msle_value = metrics.mean_squared_log_error( \
+                y_true = y_ref, \
+                y_pred = y_pred, \
+                sample_weight = None, \
+                multioutput = 'uniform_average');
+            self.logger.info('Mean Squared Logarithmic Error: ' + str(self.msle_value));
+        except:
+            self.logger.info('Mean Squared Logarithmic Error: Negative Value Present');
+        return self.msle_value;
+
+
+    def median_absolute_error(self, y_ref, y_pred):
+        """
+        Median absolute error regression loss
+        """
+        import sklearn.metrics as metrics;
+        self.mnse_value = metrics.median_absolute_error( \
+            y_true = y_ref, \
+            y_pred = y_pred);
+        self.logger.info('Median Absolute Error: ' + str(self.mnse_value));
+        return self.mnse_value;
+
+
+    def total_loss(self, y_ref, y_pred):
+        """
+        Total Loss
+        """
+        self.total_loss_value = 0;
+        for a,b in zip(y_ref, y_pred):
+            self.total_loss_value += abs(a - b);
+        self.logger.info('Total Loss (L1 Loss): ' + str(self.total_loss_value));
+
+        return self.total_loss_value;
+
+    
+    def accuracy_score(self, y_ref, y_pred):
+        """
+        Accuracy classification score.
+        In multilabel classification, this function computes subset accuracy: the set 
+        of labels predicted for a sample must exactly match the corresponding set of 
+        labels in y_true.        
+        """
+        import sklearn.metrics as metrics;
+        self.accuracy_score_value = metrics.accuracy_score( \
+            y_true = y_ref, 
+            y_pred = y_pred, 
+            normalize = True,
+            sample_weight=None);
+        self.logger.info('Accuracy Classification Score (R^2 - coefficient of determination): ' + str(self.accuracy_score_value));
+        return self.accuracy_score_value;
+
+
+
+    def get_loss(self, type, y_ref, y_pred):
         """
         Compute the differences between the predicted score and actual score
         """
-        self.loss = 0;
-        for a,b in zip(y_ref, y_pred):
-            self.loss += a - b;
-        self.logger.info('Total Loss: ' + str(self.loss));
-        return self.loss;
+        self.logger = logging.getLogger('Model-Accuracy');    
+        if type == 'regression':
+            self.total_loss_value = self.total_loss(y_ref, y_pred);
+            self.evs_value = self.explained_variance_score(y_ref, y_pred);
+            self.mae_value = self.mean_absolute_error(y_ref, y_pred);
+            self.mse_value = self.mean_squared_error(y_ref, y_pred);
+            self.msle_value = self.mean_squared_log_error(y_ref, y_pred);
+            self.mnse_value = self.median_absolute_error(y_ref, y_pred);
+        else:
+            self.accuracy_score_value = self.accuracy_score(y_ref, y_pred);
+        return "";
+
 
     def predict(self):
         """
         Perform regression or classification of the test data
-        TODO: Add save function to save the data
         """
+        self.logger = logging.getLogger('Model-Prediction');
         self.logger.info('Input: ' + str(self.x_test));
         self.predict = self.clf.predict(self.x_test);
         self.logger.info('Prediction: ' + str(self.predict));
-        self.get_score('Actual', x = self.x_test, y = self.y_test);
-        self.get_score('Predict', x = self.x_test, y = self.predict);
-        self.get_loss(y_ref = self.y_test, y_pred = self.predict);
-
-            
+        self.get_loss(type = self.type, y_ref = self.y_test, y_pred = self.predict);
+        self.save_data( \
+            x = self.x_test, \
+            y = self.predict, \
+            data_file = os.path.join(self.output_dir, 'prediction_result.npz'));
         return self.predict;
+        
+
+    def load_data(self, data_file):
+        """
+        """
+        data = np.load(data_file);
+        z = data['arr_0'];
+        y = z[:,0];
+        x = z[:,1:];
+        return x,y;
+
+    
+    def save_data(self, x, y, data_file):
+        """
+        """
+        z = np.column_stack((y,x));
+        np.savez_compressed(data_file, z)
+        return data_file;
+
+
+    def save_model(self, model_file):
+        """
+        """
+        self.logger.info('Saving model');
+        from sklearn.externals import joblib;
+        joblib.dump(self.clf, model_file);
+        return model_file;
+
+    def load_model(self):
+        """
+        """
+        self.logger.info('Loading model');
+        from sklearn.externals import joblib;
+        joblib.dump(self.clf, model_file); 
+        return self.clf;
+
 
 def print_help():
     """
