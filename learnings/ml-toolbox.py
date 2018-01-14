@@ -50,7 +50,7 @@ def main(*args, **kwargs):
         help = 'Different functions of the program');
     parser.add_argument('--model', \
         dest = 'model', \
-        choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', \
+        choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', 'Lasso', \
             'support_vector_machine', 'SVC', 'NuSVC', 'LinearSVC', \
             'stochastic_gradient_descent', 'SGDClassifier', \
             'gaussian_process', 'GaussianProcessRegressor', 'GaussianProcessClassifier', \
@@ -268,6 +268,7 @@ class Model(object):
         * LinearRegression (Optimized)
         * Ridge (Optimized)
         * RidgeCV (Optimized)
+        * Lasso (Optimized)
     * Linear and Quadratic Discriminant Analysis
     * Kernel ridge regression
     * Support Vector Machines 
@@ -410,7 +411,7 @@ class Model(object):
         self.logger.info('Perform Lasso Regression');
         from sklearn import linear_model;
         self.type = 'regression';
-        self.clf = linear_model.Lasso(alpha = 0.1);
+        self.clf = linear_model.Lasso(alpha = 0.00001);
         self.clf.fit(x, y);
         return self.clf;
 
