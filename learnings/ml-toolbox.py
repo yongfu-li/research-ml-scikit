@@ -31,13 +31,13 @@ def main(*args, **kwargs):
     # Input information
     parser.add_argument('--input_type', \
         dest = 'input_type', \
-        choices = ['csv','random_signal', 'digits_dataset'], \
+        choices = ['csv', 'npz', 'random_signal', 'digits_dataset'], \
         default = 'demo', \
         help = 'Input data type');
     parser.add_argument('--input_file', \
         dest = 'input_file', \
         default = '', \
-        help = 'Input csv file, first column is y label/measurement, remaining columns x data');
+        help = 'Input csv/npz file, first column is y label/measurement, remaining columns x data');
     parser.add_argument('--test_size', \
         dest = 'test_size', \
         default = 0.2, \
@@ -103,11 +103,13 @@ def main(*args, **kwargs):
     save_object(obj, output_file_setting);
     return;
 
+
 def save_object(obj, filename):
     """
     """
     with open(filename, 'wb') as fw:
         dill.dump(obj, fw);
+
 
 def load_object(filename):
     """
@@ -115,6 +117,7 @@ def load_object(filename):
     with open(filename, 'rb') as fp:
         obj = dill.load(fp);
     return obj;
+
 
 class Dataset(object):
     """
@@ -127,16 +130,50 @@ class Dataset(object):
         self.logger.info('Initialize dataset');
         self.mode = mode;
         self.input_file = input_file;
-        self.test_size = test_size;
+        self.test_size = float(test_size);
         self.output_dir = output_dir;
         if mode == 'csv':
             self.read_csv_file(input_file = self.input_file, test_size = self.test_size);
+        elif mode == 'npz':
+            self.load_npz_data(input_file = self.input_file, test_size = self.test_size);
         elif mode == 'random_signal':
             self.length = 100000;
             self.random_signal(length = self.length, test_size = self.test_size);
         elif mode == 'digits_dataset':
             self.digits_dataset(test_size = self.test_size);
+
+        data_file = os.path.join(self.output_dir, 'training_dataset.npz');
+        self.save_data(x = self.x_train, y = self.y_train, data_file = data_file);
+        data_file = os.path.join(self.output_dir, 'testing_dataset.npz');
+        self.save_data(x = self.x_test, y = self.y_test, data_file = data_file);
         return;
+
+
+    def save_data(self, x, y, data_file):
+        """
+        Save the x and y dataset into compressed array dataset
+        """
+        z = np.column_stack((y,x));
+        np.savez_compressed(data_file, z)
+        return data_file;
+
+
+    def load_npz_data(self, input_file, test_size):
+        """
+        Load the numpy compressed data file into x and y dataset
+        """
+        if os.path.exists(input_file):
+            self.logger.info('Loading numpy dataset');
+            data = np.load(input_file);
+            z = data['arr_0'];
+            y = z[:,0];
+            x = z[:,1:];
+            self.x_train, self.x_test, self.y_train, self.y_test = self.train_test_split( \
+                x = x, y = y, test_size = test_size);
+            return True;
+        else:
+            self.logger.warn('Invalid/Corrupted/Missing numpy file');
+            return False;
 
 
     def read_csv_file(self, input_file, test_size):
@@ -144,15 +181,13 @@ class Dataset(object):
         Load the file genfromtxt
         """
         from numpy import genfromtxt;
-        from sklearn.model_selection import train_test_split;
         if os.path.exists(input_file):
+            self.logger.info('Loading csv file');
             data = genfromtxt(input_file, delimiter=',');
             y = data[:,0];
             x = data[:,1:];
-            self.x_train, self.x_test, self.y_train, self.y_test = train_test_split( \
-                x, y, \
-                test_size = test_size, \
-                random_state = 42);
+            self.x_train, self.x_test, self.y_train, self.y_test = self.train_test_split( \
+                x = x, y = y, test_size = test_size);
             return True;
         else:
             self.logger.warn('Invalid/Missing csv file');
@@ -169,14 +204,51 @@ class Dataset(object):
         * Features integers 0-16
         """
         from sklearn.datasets import load_digits;
-        from sklearn.model_selection import train_test_split;
+        self.logger.info('Loading digits dataset');
         digits = load_digits();
-        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split( \
-            digits.data, \
-            digits.target, \
-            test_size = test_size, \
-            random_state = 42);
+        self.x_train, self.x_test, self.y_train, self.y_test = self.train_test_split( \
+            x = digits.data, \
+            y = digits.target, \
+            test_size = test_size);
         return True;
+
+
+    def random_signal_dataset(self, length, test_size):
+        """
+        Random Signal dataset
+        """
+        self.logger.info('Load demo dataset');
+        noise = np.random.uniform(-2, 2, length);
+        x = np.array([range(length),np.random.uniform(-10, 10, length)]);
+        x = np.transpose(x);
+        period = np.random.randint(length/2);
+        y = np.sin(np.pi * x[:,1] / period / 2) + x[:,1] / period + noise;
+        y = y.astype(int);
+        self.x_train, self.x_test, self.y_train, self.y_test = self.train_test_split( \
+            x = x, y = y, \
+            test_size = test_size);
+        return True;
+
+
+    def train_test_split(self, x, y, test_size):
+        """
+        """
+        from sklearn.model_selection import train_test_split;
+        if test_size >= 1:
+            x_train = np.zeros(0);
+            y_train = np.zeros(0);
+            x_test = x;
+            y_test = y;
+        elif test_size <= 0:
+            x_train = x;
+            y_train = y;
+            x_test = np.zeros(0);
+            y_test = np.zeros(0);
+        else:
+            x_train, x_test, y_train, y_test = train_test_split(x, y, \
+                test_size = test_size, \
+                random_state = 42);
+        return x_train, x_test, y_train, y_test;
 
 
     def randomize_dataset(self, x, y, test_size):
@@ -186,25 +258,8 @@ class Dataset(object):
         N = x.shape;
         ind_cut = int(test_size * N[0]);
         ind = np.random.permutation(N[0]);
-        #X_train, X_test, Y_train, Y_test
         return x[ind[ind_cut:]], x[ind[:ind_cut]], y[ind[ind_cut:]], y[ind[:ind_cut]]
 
-    def random_signal_dataset(self, length, test_size):
-        """
-        Random Signal dataset
-        """
-        from sklearn.model_selection import train_test_split;
-        self.logger.info('Load demo dataset');
-        noise = np.random.uniform(-2, 2, length);
-        x = np.array([range(length),np.random.uniform(-10, 10, length)]);
-        x = np.transpose(x);
-        period = np.random.randint(length/2);
-        y = np.sin(np.pi * x[:,1] / period / 2) + x[:,1] / period + noise;
-        y = y.astype(int);
-        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(x, y, \
-            test_size = test_size, \
-            random_state = 42);
-        return True;
 
 class Model(object):
     """
@@ -699,27 +754,34 @@ class Model(object):
         Perform regression or classification of the test data
         """
         self.logger = logging.getLogger('Model-Prediction');
-        self.logger.info('Input: \n' + str(self.x_test));
-        self.predict = self.clf.predict(self.x_test);
-        self.logger.info('Prediction: \n' + str(self.predict));
-        self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
-        self.save_data( \
-            x = self.x_test, \
-            y = self.predict, \
-            data_file = os.path.join(self.output_dir, 'prediction_result.npz'));
-        return self.predict;
-        
+        if self.x_test.shape[0]:
+            self.logger.info('Input: \n' + str(self.x_test));        
+            self.predict = self.clf.predict(self.x_test);
+            self.logger.info('Prediction: \n' + str(self.predict));
+            self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
+            self.save_data( \
+                x = self.x_test, \
+                y = self.predict, \
+                data_file = os.path.join(self.output_dir, 'prediction_result.npz'));
+            return self.predict;
+        else:
+            self.logger.warn('No testing data available. Please check the --test_size option');
+            return False;
+
 
     def load_data(self, data_file):
         """
         Load the numpy compressed data file into x and y dataset
         """
-        data = np.load(data_file);
-        z = data['arr_0'];
-        y = z[:,0];
-        x = z[:,1:];
-        return x,y;
-
+        if os.path.exists(data_file):        
+            data = np.load(data_file);
+            z = data['arr_0'];
+            y = z[:,0];
+            x = z[:,1:];
+            return x,y;
+        else:
+            self.logger.warn('Invalid/Corrupted/Missing numpy file');
+            return False;
     
     def save_data(self, x, y, data_file):
         """
@@ -757,16 +819,24 @@ class Model(object):
         if mode == 'train':
             x_ref = self.x_train;
             y_ref = self.y_train;
-            y_pred = self.clf.predict(self.x_train);
+            if self.x_train.shape[0]:
+                y_pred = self.clf.predict(self.x_train);
+            else:
+                self.logger.warn('No training data for plotting');
+                return False;
         else:
             x_ref = self.x_test;
             y_ref = self.y_test;
-            y_pred = self.clf.predict(self.x_test);
+            if self.x_test.shape[0]:
+                y_pred = self.clf.predict(self.x_test);
+            else:
+                self.logger.warn('No testing data for plotting');
+                return False;
         if type == 'regression':
             self.cross_validation_plot(mode, y_ref, y_pred, output_dir);
         else:
             self.precision_recall_plot(mode, y_ref, y_pred, output_dir);
-        return "";
+        return True;
 
 
     def precision_recall_plot(self, mode, y_ref, y_pred, output_dir):
