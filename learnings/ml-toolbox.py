@@ -264,7 +264,10 @@ class Dataset(object):
 
 class Model(object):
     """
-    * Generalized Linear Model (Partial)
+    * Generalized Linear Model
+        * LinearRegression (Optimized)
+        * Ridge (Optimized)
+        * RidgeCV (Optimized)
     * Linear and Quadratic Discriminant Analysis
     * Kernel ridge regression
     * Support Vector Machines 
@@ -290,9 +293,9 @@ class Model(object):
     * Ensemble methods
     * Multiclass and multilabel algorithm
     * Feature Selection
-    *
+    * Semi-Supervised
     * Isotonic regression
-        * IsotonicRegression
+        * IsotonicRegression (Optimized)
     """
     
     def __init__(self, model, dataset, output_dir = './work'):
@@ -312,12 +315,12 @@ class Model(object):
         """
         """
         self.logger = logging.getLogger('Model-Training');
-        if self.model == 'Ridge':
+        if self.model == 'LinearRegression':
+            self.LinearRegression(x = self.x_train, y = self.y_train);
+        elif self.model == 'Ridge':
             self.Ridge(x = self.x_train, y = self.y_train);
         elif self.model == 'RidgeCV':
             self.RidgeCV(x = self.x_train, y = self.y_train);
-        elif self.model == 'LinearRegression':
-            self.LinearRegression(x = self.x_train, y = self.y_train);
         elif self.model == 'Lasso':
             self.Lasso(x = self.x_train, y = self.y_train);
         elif self.model == 'SVC':
@@ -375,9 +378,10 @@ class Model(object):
         self.logger.info('Perform Ridge Regression');
         from sklearn import linear_model;
         self.type = 'regression';        
-        self.clf = linear_model.Ridge(alpha = .5);
+        self.clf = linear_model.Ridge(alpha = 0.0001);
         self.clf.fit(x, y);
         return self.clf;
+
 
     def RidgeCV(self, x, y):
         """
@@ -390,7 +394,7 @@ class Model(object):
         self.logger.info('Perform RidgeCV Regression');
         from sklearn import linear_model;
         self.type = 'regression';
-        self.clf = linear_model.RidgeCV(alphas=[0.1, 1.0, 10.0]);
+        self.clf = linear_model.RidgeCV(alphas=[0.0001, 0.001, 0.01, 0.1, 1.0, 10.0]);
         self.clf.fit(x, y);
         return self.clf;
 
