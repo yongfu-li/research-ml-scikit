@@ -55,7 +55,8 @@ def main(*args, **kwargs):
             'stochastic_gradient_descent', 'SGDClassifier', \
             'gaussian_process', 'GaussianProcessRegressor', 'GaussianProcessClassifier', \
             'tree', 'DecisionTreeRegressor', 'DecisionTreeClassifier', \
-            'naive_bayes', 'GaussianNB', 'MultinomialNB','BernoulliNB'], \
+            'naive_bayes', 'GaussianNB', 'MultinomialNB','BernoulliNB', \
+            'IsotonicRegression'], \
         action = 'store', \
         default = 'naive_bayes', \
         help = 'Type of classifier/regression models');
@@ -263,32 +264,35 @@ class Dataset(object):
 
 class Model(object):
     """
-    1.1 Generalized Linear Model (Partial)
-    1.2 Linear and Quadratic Discriminant Analysis
-    1.3 Kernel ridge regression
-    1.4 Support Vector Machines 
-        - SVC
-        - NuSVC
-        - LinearSVC
-    1.5 Stochastic Gradient Descent
-        - SGDClassifier
-    1.6 Nearest Neighbors
-        - KNeighborsRegressor
-        - RadiusNeighborsRegressor
-    1.7 Gaussian Processes 
-        - GaussianProcessClassifier
-        - GaussianProcessRegressor
-    1.8 Cross decomposition
-    1.9 Naive Bayes
-        - GaussianNB
-        - MultinomialNB
-        - BernoulliNB
-    1.10 Decision Trees 
-        - DecisionTreeClassifier
-        - DecisionTreeRegressor 
-    1.11 Ensemble methods
-    1.12 Multiclass and multilabel algorithm
-    1.13 Feature Selection
+    * Generalized Linear Model (Partial)
+    * Linear and Quadratic Discriminant Analysis
+    * Kernel ridge regression
+    * Support Vector Machines 
+        * SVC
+        * NuSVC
+        * LinearSVC
+    * Stochastic Gradient Descent
+        * SGDClassifier
+    * Nearest Neighbors
+        * KNeighborsRegressor
+        * RadiusNeighborsRegressor
+    * Gaussian Processes 
+        * GaussianProcessClassifier
+        * GaussianProcessRegressor
+    * Cross decomposition
+    * Naive Bayes
+        * GaussianNB
+        * MultinomialNB
+        * BernoulliNB
+    * Decision Trees 
+        * DecisionTreeClassifier
+        * DecisionTreeRegressor 
+    * Ensemble methods
+    * Multiclass and multilabel algorithm
+    * Feature Selection
+    *
+    * Isotonic regression
+        * IsotonicRegression
     """
     
     def __init__(self, model, dataset, output_dir = './work'):
@@ -339,7 +343,10 @@ class Model(object):
             self.MultinomialNB(x = self.x_train, y = self.y_train);
         elif self.model == 'BernoulliNB':
             self.BernoulliNB(x = self.x_train, y = self.y_train);
+        elif self.model == 'IsotonicRegression':
+            self.IsotonicRegression(x = self.x_train, y = self.y_train);
         return;
+
 
     def LinearRegression(self, x, y):
         """
@@ -573,6 +580,25 @@ class Model(object):
         return self.clf;
 
 
+    def IsotonicRegression(self, x, y):
+        """
+        The isotonic regression optimization problem is defined by:
+        min sum w_i (y[i] - y_[i]) ** 2
+        subject to y_[i] <= y_[j] whenever X[i] <= X[j]
+        and min(y_) = y_min, max(y_) = y_max
+        """
+        self.logger.info('Perform Isotonic Regression');
+        try:
+            from sklearn.isotonic import IsotonicRegression;
+            self.type = 'regression';
+            self.clf = IsotonicRegression();
+            self.clf.fit(x,y);
+            return self.clf;
+        except:
+            self.logger.error('Training dataset is not suitable for Isotonic Regression');
+            return False;
+
+
     def get_score(self, clf, x, y):
         """
         Print the coefficient of determination R^2 of the prediction.
@@ -639,7 +665,7 @@ class Model(object):
                 multioutput = 'uniform_average');
             self.logger.info('Mean Squared Logarithmic Error: ' + str(value));
         except:
-            self.logger.info('Mean Squared Logarithmic Error: Negative Value Present');
+            self.logger.error('Mean Squared Logarithmic Error: Negative Value Present');
         return value;
 
 
@@ -683,6 +709,7 @@ class Model(object):
             str(value));
         return value;
     
+
     def accuracy_score(self, y_ref, y_pred):
         """
         Accuracy classification score.
@@ -719,7 +746,7 @@ class Model(object):
                 + str(value));
         except:
             value = -1;
-            self.logger.info('Average Precision is not supported for multiclass');
+            self.logger.warn('Average Precision is not supported for multiclass');
         return value;
 
 
@@ -755,15 +782,18 @@ class Model(object):
         """
         self.logger = logging.getLogger('Model-Prediction');
         if self.x_test.shape[0]:
-            self.logger.info('Input: \n' + str(self.x_test));        
-            self.predict = self.clf.predict(self.x_test);
-            self.logger.info('Prediction: \n' + str(self.predict));
-            self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
-            self.save_data( \
-                x = self.x_test, \
-                y = self.predict, \
-                data_file = os.path.join(self.output_dir, 'prediction_result.npz'));
-            return self.predict;
+            self.logger.info('Input: \n' + str(self.x_test));
+            try:
+                self.predict = self.clf.predict(self.x_test);
+                self.logger.info('Prediction: \n' + str(self.predict));
+                self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
+                self.save_data( \
+                    x = self.x_test, \
+                    y = self.predict, \
+                    data_file = os.path.join(self.output_dir, 'prediction_result.npz'));
+                return self.predict;
+            except:
+                self.logger.error('Testing dataset is not suitable for model prediction');
         else:
             self.logger.warn('No testing data available. Please check the --test_size option');
             return False;
@@ -782,7 +812,8 @@ class Model(object):
         else:
             self.logger.warn('Invalid/Corrupted/Missing numpy file');
             return False;
-    
+
+
     def save_data(self, x, y, data_file):
         """
         Save the x and y dataset into compressed array dataset
@@ -820,7 +851,11 @@ class Model(object):
             x_ref = self.x_train;
             y_ref = self.y_train;
             if self.x_train.shape[0]:
-                y_pred = self.clf.predict(self.x_train);
+                try:
+                    y_pred = self.clf.predict(self.x_train);
+                except:
+                    self.logger.error('Training dataset is not suitable for model analysis');
+                    return False;
             else:
                 self.logger.warn('No training data for plotting');
                 return False;
@@ -828,7 +863,11 @@ class Model(object):
             x_ref = self.x_test;
             y_ref = self.y_test;
             if self.x_test.shape[0]:
-                y_pred = self.clf.predict(self.x_test);
+                try:
+                    y_pred = self.clf.predict(self.x_test);
+                except:
+                    self.logger.error('Testing dataset is not suitable for model analysis');
+                    return False;
             else:
                 self.logger.warn('No testing data for plotting');
                 return False;
@@ -849,6 +888,10 @@ class Model(object):
         """
         from sklearn.metrics import precision_recall_curve;
         try:
+            if mode == 'train':
+                self.logger.info('Precision-Recall Plot for training dataset');
+            else:
+                self.logger.info('Precision-Recall Plot for testing dataset');
             precision, recall, _ = precision_recall_curve(y_ref, y_pred);
             plt.step(recall, precision, color = 'b', alpha = 0.2, where = 'post');
             plt.fill_between(recall, precision, step = 'post', alpha = 0.2, color = 'b');
@@ -866,6 +909,10 @@ class Model(object):
             self.print_pdf(filename);
             return filename;
         except:
+            if mode == 'train':
+                self.logger.warn('Training dataset is not suitable for precision-recall plot');
+            else:
+                self.logger.warn('Testing dataset is not suitable for precision-recall plot');
             return "";
 
 
@@ -873,6 +920,10 @@ class Model(object):
         """
         Plot the different between predicted and measured data
         """
+        if mode == 'train':
+            self.logger.info('Cross Validation Plot for training dataset');
+        else:
+            self.logger.info('Cross Validation Plot for testing dataset');
         fig, ax = plt.subplots();
         ax.scatter(y_ref, y_pred, edgecolors=(0, 0, 0));
         ax.plot([y_ref.min(), y_ref.max()], [y_pred.min(), y_pred.max()], 'k--', lw=4);
