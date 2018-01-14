@@ -84,17 +84,17 @@ def main(*args, **kwargs):
     if args.mode == 'train':
         obj.train();
         obj.save_model(os.path.join(args.output_dir,'model.pkl'));
-        obj.plot(mode = 'train', model = args.model, output_dir = args.output_dir);
+        obj.plot(mode = 'train', type = obj.type, output_dir = args.output_dir);
     elif args.mode == 'test':
         obj.load_model(args.model_file);
         obj.predict();
-        obj.plot(mode = 'test', model = args.model, output_dir = args.output_dir);
+        obj.plot(mode = 'test',  type = obj.type, output_dir = args.output_dir);
     elif args.mode == 'train_test':
         obj.train();
         obj.save_model(os.path.join(args.output_dir,'model.pkl'));
         obj.predict();
-        obj.plot(mode = 'train', model = args.model, output_dir = args.output_dir);
-        obj.plot(mode = 'test', model = args.model, output_dir = args.output_dir);
+        obj.plot(mode = 'train', type = obj.type, output_dir = args.output_dir);
+        obj.plot(mode = 'test', type = obj.type, output_dir = args.output_dir);
     output_file_setting = os.path.join(args.output_dir, 'setting.pkl');
     save_object(obj, output_file_setting);
     return;
@@ -142,6 +142,7 @@ class Dataset(object):
         """
         Demo dataset
         """
+        from sklearn.model_selection import train_test_split
         self.logger.info('Load demo dataset');
         noise = np.random.uniform(-2, 2, length);
         x = np.array([range(length),np.random.uniform(-10, 10, length)]);
@@ -149,7 +150,9 @@ class Dataset(object):
         period = np.random.randint(length/2);
         y = np.sin(np.pi * x[:,1] / period / 2) + x[:,1] / period + noise;
         y = y.astype(int);
-        self.x_train, self.x_test, self.y_train, self.y_test = self.randomize_dataset(x, y, test_size);
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(x, y, \
+            test_size = test_size, \
+            random_state = 42);
         return;
 
 class Model(object):
@@ -464,14 +467,14 @@ class Model(object):
         return self.clf;
 
 
-    def get_score(self, x, y):
+    def get_score(self, clf, x, y):
         """
         Print the coefficient of determination R^2 of the prediction.
         """
         self.logger = logging.getLogger('Model-Accuracy');        
-        self.score = self.clf.score(x, y);
-        self.logger.info('Score (R^2 - coefficient of determination): ' + str(self.score));        
-        return self.score;
+        value = clf.score(x, y);
+        self.logger.info('Score (R^2 - coefficient of determination): ' + str(value));        
+        return value;
 
 
     def explained_variance_score(self, y_ref, y_pred):
@@ -480,12 +483,12 @@ class Model(object):
         Best possible score is 1.0, lower values are worse.
         """
         import sklearn.metrics as metrics;
-        self.evs_value = metrics.explained_variance_score( \
+        value = metrics.explained_variance_score( \
             y_true = y_ref, \
             y_pred = y_pred, \
             multioutput = 'uniform_average');
-        self.logger.info('Explained Variance Regression (Max 1.0): ' + str(self.evs_value));
-        return self.evs_value;
+        self.logger.info('Explained Variance Regression (Max 1.0): ' + str(value));
+        return value;
 
 
     def mean_absolute_error(self, y_ref, y_pred):
@@ -493,13 +496,13 @@ class Model(object):
         Mean absolute error regression loss
         """
         import sklearn.metrics as metrics;
-        self.mae_value = metrics.mean_absolute_error( \
+        value = metrics.mean_absolute_error( \
             y_true = y_ref, \
             y_pred = y_pred, \
             sample_weight = None, \
             multioutput = 'uniform_average');
-        self.logger.info('Mean Absolute Error: ' + str(self.mae_value));
-        return self.mae_value;
+        self.logger.info('Mean Absolute Error: ' + str(value));
+        return value;
 
 
     def mean_squared_error(self, y_ref, y_pred):
@@ -507,12 +510,12 @@ class Model(object):
         Mean squared error regression loss
         """
         import sklearn.metrics as metrics;
-        self.mse_value = metrics.mean_squared_error( \
+        value = metrics.mean_squared_error( \
             y_true = y_ref, \
             y_pred = y_pred, \
             sample_weight = None, \
             multioutput = 'uniform_average');
-        self.logger.info('Mean Squared Error (L2 Loss): ' + str(self.mse_value));
+        self.logger.info('Mean Squared Error (L2 Loss): ' + str(value));
         return self.mse_value;
 
 
@@ -521,17 +524,17 @@ class Model(object):
         Mean squared logarithmic error regression loss
         """
         import sklearn.metrics as metrics;
-        self.msle_value = -1;
+        value = -1;
         try:
-            self.msle_value = metrics.mean_squared_log_error( \
+            value = metrics.mean_squared_log_error( \
                 y_true = y_ref, \
                 y_pred = y_pred, \
                 sample_weight = None, \
                 multioutput = 'uniform_average');
-            self.logger.info('Mean Squared Logarithmic Error: ' + str(self.msle_value));
+            self.logger.info('Mean Squared Logarithmic Error: ' + str(value));
         except:
             self.logger.info('Mean Squared Logarithmic Error: Negative Value Present');
-        return self.msle_value;
+        return value;
 
 
     def median_absolute_error(self, y_ref, y_pred):
@@ -539,23 +542,23 @@ class Model(object):
         Median absolute error regression loss
         """
         import sklearn.metrics as metrics;
-        self.mnse_value = metrics.median_absolute_error( \
+        value = metrics.median_absolute_error( \
             y_true = y_ref, \
             y_pred = y_pred);
-        self.logger.info('Median Absolute Error: ' + str(self.mnse_value));
-        return self.mnse_value;
+        self.logger.info('Median Absolute Error: ' + str(value));
+        return value;
 
 
     def total_loss(self, y_ref, y_pred):
         """
         Total Loss
         """
-        self.total_loss_value = 0;
+        value = 0;
         for a,b in zip(y_ref, y_pred):
-            self.total_loss_value += abs(a - b);
-        self.logger.info('Total Loss (L1 Loss): ' + str(self.total_loss_value));
+            value += abs(a - b);
+        self.logger.info('Total Loss (L1 Loss): ' + str(value));
+        return value;
 
-        return self.total_loss_value;
 
     def r2_score(self, y_ref, y_pred):
         """
@@ -565,14 +568,14 @@ class Model(object):
         value of y, disregarding the input features, would get a R^2 score of 0.0.
         """
         import sklearn.metrics as metrics;
-        self.r2_value = metrics.r2_score( \
+        value = metrics.r2_score( \
             y_true = y_ref, \
             y_pred = y_pred, \
             sample_weight = None, \
             multioutput = 'uniform_average');
         self.logger.info('Accuracy Regression Score (R^2 - coefficient of determination): ' + \
-            str(self.r2_value));
-        return self.r2_value;
+            str(value));
+        return value;
     
     def accuracy_score(self, y_ref, y_pred):
         """
@@ -582,19 +585,48 @@ class Model(object):
         labels in y_true.        
         """
         import sklearn.metrics as metrics;
-        self.accuracy_score_value = metrics.accuracy_score( \
+        value = metrics.accuracy_score( \
             y_true = y_ref, 
             y_pred = y_pred, 
             normalize = True,
-            sample_weight=None);
+            sample_weight = None);
         self.logger.info('Accuracy Classification Score (R^2 - coefficient of determination): ' \
-            + str(self.accuracy_score_value));
-        return self.accuracy_score_value;
+            + str(value));
+        return value;
 
 
-    def get_loss(self, type, y_ref, y_pred):
+    def average_precision_score(self, y_ref, y_pred):
+        """
+        Compute average precision (AP) from prediction scores
+        AP summarizes a precision-recall curve as the weighted mean of precisions achieved 
+        at each threshold, with the increase in recall from the previous threshold used as the weight
+        Note: this implementation is restricted to the binary classification task or multilabel classification task.
+        """
+        import sklearn.metrics as metrics;
+        try:
+            value = metrics.average_precision_score( \
+                y_true = y_ref, \
+                y_score = y_pred, \
+                average = 'macro', \
+                sample_weight = None);
+            self.logger.info('Average Precision Score: ' \
+                + str(value));
+        except:
+            value = -1;
+            self.logger.info('Average Precision is not supported for multiclass');
+        return value;
+
+
+    def scoring(self, type, y_ref, y_pred):
         """
         Compute the differences between the predicted score and actual score
+        Regression	 	 
+        'explained_variance' - metrics.explained_variance_score	 
+        'neg_mean_absolute_error'- metrics.mean_absolute_error	 
+        'neg_mean_squared_error' - metrics.mean_squared_error	 
+        'neg_mean_squared_log_error' - metrics.mean_squared_log_error	 
+        'neg_median_absolute_error' - metrics.median_absolute_error	 
+        'r2' - metrics.r2_score
         """
         self.logger = logging.getLogger('Model-Accuracy');    
         if type == 'regression':
@@ -607,6 +639,7 @@ class Model(object):
             self.mnse_value = self.median_absolute_error(y_ref, y_pred);
         else:
             self.accuracy_score_value = self.accuracy_score(y_ref, y_pred);
+            self.average_precision_score_value = self.average_precision_score(y_ref, y_pred);
         return "";
 
 
@@ -618,7 +651,7 @@ class Model(object):
         self.logger.info('Input: ' + str(self.x_test));
         self.predict = self.clf.predict(self.x_test);
         self.logger.info('Prediction: ' + str(self.predict));
-        self.get_loss(type = self.type, y_ref = self.y_test, y_pred = self.predict);
+        self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
         self.save_data( \
             x = self.x_test, \
             y = self.predict, \
@@ -664,7 +697,7 @@ class Model(object):
         return self.clf;
 
 
-    def plot(self, mode, model, output_dir):
+    def plot(self, mode, type, output_dir):
         """
         Plot all the different analysis
         """
@@ -676,8 +709,41 @@ class Model(object):
             x_ref = self.x_test;
             y_ref = self.y_test;
             y_pred = self.clf.predict(self.x_test);
-        self.cross_validation_plot(mode, y_ref, y_pred, output_dir);
+        if type == 'regression':
+            self.cross_validation_plot(mode, y_ref, y_pred, output_dir);
+        else:
+            self.precision_recall_plot(mode, y_ref, y_pred, output_dir);
         return "";
+
+
+    def precision_recall_plot(self, mode, y_ref, y_pred, output_dir):
+        """
+        Precision-Recall metric to evaluate classifier output quality.
+        Precision-Recall is a useful measure of success of prediction when
+        the classes are very imbalanced. In information retrieval, precision 
+        is a measure of result relevancy, while recall is a measure of how many 
+        truly relevant results are returned.
+        """
+        from sklearn.metrics import precision_recall_curve;
+        try:
+            precision, recall, _ = precision_recall_curve(y_ref, y_pred);
+            plt.step(recall, precision, color = 'b', alpha = 0.2, where = 'post');
+            plt.fill_between(recall, precision, step = 'post', alpha = 0.2, color = 'b');
+            plt.xlabel('Recall');
+            plt.ylabel('Precision');
+            plt.ylim([0.0, 1.05]);
+            plt.xlim([0.0, 1.0]);
+            value = self.average_precision_score(y_ref, y_pred);
+            if mode == 'train':
+                plt.title('2-class Precision-Recall curve (Train): AP={0:0.2f}'.format(value));
+                filename = os.path.join(output_dir, 'precision_recall_plot_training.pdf');
+            else:
+                plt.title('2-class Precision-Recall curve (Test): AP={0:0.2f}'.format(value));
+                filename = os.path.join(output_dir, 'precision_recall_plot_testing.pdf');
+            self.print_pdf(filename);
+            return filename;
+        except:
+            return "";
 
 
     def cross_validation_plot(self, mode, y_ref, y_pred, output_dir):
@@ -691,14 +757,20 @@ class Model(object):
         ax.set_ylabel('Predicted');
         if mode == 'train':
             ax.set_title('Cross Validation Scatter Plot for Training data');
-            filename = os.path.join(output_dir, 'scatter_plot_training.pdf');
+            filename = os.path.join(output_dir, 'cross_validation_plot_training.pdf');
         else:
             ax.set_title('Cross Validation Scatter Plot for Test data');
-            filename = os.path.join(output_dir, 'scatter_plot_testing.pdf');
+            filename = os.path.join(output_dir, 'cross_validation_plot_testing.pdf');
+        self.print_pdf(filename);
+        return filename;
+    
+
+    def print_pdf(self, filename):
+        """
+        """
         pdf = PdfPages(filename);
         pdf.savefig();
         pdf.close();
-        
         return filename;
 
 
