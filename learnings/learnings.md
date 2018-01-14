@@ -1,3 +1,52 @@
+# Supervised learning
+* [Generalized Linear Models](#generalized-linear-models)
+* Linear and Quadratic Discriminant Analysis
+* Kernel ridge regression
+1.4. Support Vector Machines
+* [Stochastic Gradient Descent](#stochastic-gradient-descent)
+* [Nearest Neighbors](#nearest-neighbors)
+* Gaussian Processes
+1.8. Cross decomposition
+1.9. Naive Bayes
+1.10. Decision Trees
+1.11. Ensemble methods
+1.12. Multiclass and multilabel algorithms
+1.13. Feature selection
+1.14. Semi-Supervised
+1.15. Isotonic regression
+1.16. Probability calibration
+1.17. Neural network models (supervised)
+# Unsupervised learning
+2.1. Gaussian mixture models
+2.2. Manifold learning
+2.3. Clustering
+2.4. Biclustering
+2.5. Decomposing signals in components (matrix factorization problems)
+2.6. Covariance estimation
+2.7. Novelty and Outlier Detection
+2.8. Density Estimation
+2.9. Neural network models (unsupervised)
+
+
+## Generalized Linear Models 
+
+## Stochastic Gradient Descent
+* Stochastic Gradient Descent (SGD) is a simple yet very efficient approach to discriminative learning of linear classifiers under convex loss functions such as (linear) Support Vector Machines and Logistic Regression. 
+* Even though SGD has been around in the machine learning community for a long time, it has received a considerable amount of attention just recently in the context of large-scale learning.
+* SGD has been successfully applied to large-scale and sparse machine learning problems often encountered in text classification and natural language processing. Given that the data is sparse, the classifiers in this module easily scale to problems with more than 10^5 training examples and more than 10^5 features.
+### The advantages of Stochastic Gradient Descent are:
+* Efficiency.
+* Ease of implementation (lots of opportunities for code tuning).
+### The disadvantages of Stochastic Gradient Descent include:
+* SGD requires a number of hyperparameters such as the regularization parameter and the number of iterations.
+* SGD is sensitive to feature scaling.
+
+## Nearest Neighbors
+sklearn.neighbors provides functionality for unsupervised and supervised neighbors-based learning methods. Unsupervised nearest neighbors is the foundation of many other learning methods, notably manifold learning and spectral clustering. Supervised neighbors-based learning comes in two flavors: classification for data with discrete labels, and regression for data with continuous labels.
+The principle behind nearest neighbor methods is to find a predefined number of training samples closest in distance to the new point, and predict the label from these. The number of samples can be a user-defined constant (k-nearest neighbor learning), or vary based on the local density of points (radius-based neighbor learning). The distance can, in general, be any metric measure: standard Euclidean distance is the most common choice. Neighbors-based methods are known as non-generalizing machine learning methods, since they simply “remember” all of its training data (possibly transformed into a fast indexing structure such as a Ball Tree or KD Tree.).
+Despite its simplicity, nearest neighbors has been successful in a large number of classification and regression problems, including handwritten digits or satellite image scenes. Being a non-parametric method, it is often successful in classification situations where the decision boundary is very irregular.
+The classes in sklearn.neighbors can handle either Numpy arrays or scipy.sparse matrices as input. For dense matrices, a large number of possible distance metrics are supported. For sparse matrices, arbitrary Minkowski metrics are supported for searches.
+
 
 ## Gaussian Processes
 * Gaussian Processes (GP) are a generic supervised learning method designed to solve regression and probabilistic classification problems.
