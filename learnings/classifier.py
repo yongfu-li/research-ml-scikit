@@ -9,14 +9,14 @@ from __future__ import division;
 from __future__ import print_function;
 from __future__ import absolute_import;
 
-
 import os;
 import argparse;
 import logging;
 import numpy as np;
 from tqdm import tqdm;
 import dill;
-
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 
 def main(*args, **kwargs):
     """
@@ -47,7 +47,8 @@ def main(*args, **kwargs):
     parser.add_argument('--model', \
         dest = 'model', \
         choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', \
-            'support_vector_machine', 'SVC', \
+            'support_vector_machine', 'SVC', 'NuSVC', 'LinearSVC', \
+            'stochastic_gradient_descent', 'SGDClassifier', \
             'gaussian_process', 'GaussianProcessRegressor', 'GaussianProcessClassifier', \
             'tree', 'DecisionTreeRegressor', 'DecisionTreeClassifier', \
             'naive_bayes', 'GaussianNB', 'MultinomialNB','BernoulliNB'], \
@@ -83,13 +84,17 @@ def main(*args, **kwargs):
     if args.mode == 'train':
         obj.train();
         obj.save_model(os.path.join(args.output_dir,'model.pkl'));
+        obj.plot(mode = 'train', model = args.model, output_dir = args.output_dir);
     elif args.mode == 'test':
         obj.load_model(args.model_file);
         obj.predict();
+        obj.plot(mode = 'test', model = args.model, output_dir = args.output_dir);
     elif args.mode == 'train_test':
         obj.train();
         obj.save_model(os.path.join(args.output_dir,'model.pkl'));
         obj.predict();
+        obj.plot(mode = 'train', model = args.model, output_dir = args.output_dir);
+        obj.plot(mode = 'test', model = args.model, output_dir = args.output_dir);
     output_file_setting = os.path.join(args.output_dir, 'setting.pkl');
     save_object(obj, output_file_setting);
     return;
@@ -157,6 +162,7 @@ class Model(object):
         - NuSVC
         - LinearSVC
     1.5 Stochastic Gradient Descent
+        - SGDClassifier
     1.6 Nearest Neighbors
         - KNeighborsRegressor
         - RadiusNeighborsRegressor
@@ -207,6 +213,8 @@ class Model(object):
             self.NuSVC(x = self.x_train, y = self.y_train);
         elif self.model == 'LinearSVC':
             self.LinearSVC(x = self.x_train, y = self.y_train);
+        elif self.model == 'SGDClassifier':
+            self.SGDClassifier(x = self.x_train, y = self.y_train);
         elif self.model == 'DecisionTreeClassifier':
             self.DecisionTreeClassifier(x = self.x_train, y = self.y_train, \
                 output_dir = self.output_dir);
@@ -224,18 +232,19 @@ class Model(object):
             self.BernoulliNB(x = self.x_train, y = self.y_train);
         return;
 
-
     def LinearRegression(self, x, y):
         """
         Linear Regression:
         Ordinary Least Squares
         LinearRegression will take in its fit method arrays X, y and will store
         the coefficients w of the linear model in its coef_ member.
+
+        sklearn.linear_model.LinearRegression(fit_intercept=True, normalize=False, copy_X=True, n_jobs=1)
         """
         self.logger.info('Perform Linear Regression');
-        from sklearn import linear_modelanalytic;
+        from sklearn import linear_model;
         self.type = 'regression';
-        self.clf = linear_model.LinearRegression();
+        self.clf = linear_model.LinearRegression(n_jobs = -1);
         self.clf.fit(x, y);
         return self.clf;
 
@@ -325,6 +334,28 @@ class Model(object):
         self.clf = LinearSVC();
         self.clf.fit(x, y);
         return self.clf;
+
+
+    def SGDClassifier(self, x, y):
+        """
+        The class SGDClassifier implements a plain stochastic gradient descent learning routine 
+        which supports different loss functions and penalties for classification.
+        class sklearn.linear_model.SGDClassifier(loss=’hinge’, penalty=’l2’, alpha=0.0001, 
+        l1_ratio=0.15, fit_intercept=True, max_iter=None, tol=None, shuffle=True, verbose=0, 
+        epsilon=0.1, n_jobs=1, random_state=None, learning_rate=’optimal’, eta0=0.0, power_t=0.5, 
+        class_weight=None, warm_start=False, average=False, n_iter=None)
+
+        ‘hinge’, ‘log’, ‘modified_huber’, ‘squared_hinge’, ‘perceptron’, or 
+        a regression loss: ‘squared_loss’, ‘huber’, ‘epsilon_insensitive’, or ‘squared_epsilon_insensitive’.
+        """
+
+        self.logger.info('Perform SGDClassifier Classifier');
+        from sklearn.linear_model import SGDClassifier;
+        self.type = 'classification';
+        self.clf = SGDClassifier();
+        self.clf.fit(x, y);
+        return self.clf;
+
 
 
     def GaussianProcessRegressor(self, x, y):
@@ -526,6 +557,22 @@ class Model(object):
 
         return self.total_loss_value;
 
+    def r2_score(self, y_ref, y_pred):
+        """
+        R^2 (coefficient of determination) regression score function.
+        Best possible score is 1.0 and it can be negative (because the model can 
+        be arbitrarily worse). A constant model that always predicts the expected 
+        value of y, disregarding the input features, would get a R^2 score of 0.0.
+        """
+        import sklearn.metrics as metrics;
+        self.r2_value = metrics.r2_score( \
+            y_true = y_ref, \
+            y_pred = y_pred, \
+            sample_weight = None, \
+            multioutput = 'uniform_average');
+        self.logger.info('Accuracy Regression Score (R^2 - coefficient of determination): ' + \
+            str(self.r2_value));
+        return self.r2_value;
     
     def accuracy_score(self, y_ref, y_pred):
         """
@@ -540,9 +587,9 @@ class Model(object):
             y_pred = y_pred, 
             normalize = True,
             sample_weight=None);
-        self.logger.info('Accuracy Classification Score (R^2 - coefficient of determination): ' + str(self.accuracy_score_value));
+        self.logger.info('Accuracy Classification Score (R^2 - coefficient of determination): ' \
+            + str(self.accuracy_score_value));
         return self.accuracy_score_value;
-
 
 
     def get_loss(self, type, y_ref, y_pred):
@@ -551,6 +598,7 @@ class Model(object):
         """
         self.logger = logging.getLogger('Model-Accuracy');    
         if type == 'regression':
+            self.r2_value = self.r2_score(y_ref, y_pred);
             self.total_loss_value = self.total_loss(y_ref, y_pred);
             self.evs_value = self.explained_variance_score(y_ref, y_pred);
             self.mae_value = self.mean_absolute_error(y_ref, y_pred);
@@ -598,19 +646,60 @@ class Model(object):
 
     def save_model(self, model_file):
         """
+        Save obj using joblib class
         """
         self.logger.info('Saving model');
         from sklearn.externals import joblib;
         joblib.dump(self.clf, model_file);
         return model_file;
 
+
     def load_model(self):
         """
+        Load obj setting using joblib class
         """
         self.logger.info('Loading model');
         from sklearn.externals import joblib;
         joblib.dump(self.clf, model_file); 
         return self.clf;
+
+
+    def plot(self, mode, model, output_dir):
+        """
+        Plot all the different analysis
+        """
+        if mode == 'train':
+            x_ref = self.x_train;
+            y_ref = self.y_train;
+            y_pred = self.clf.predict(self.x_train);
+        else:
+            x_ref = self.x_test;
+            y_ref = self.y_test;
+            y_pred = self.clf.predict(self.x_test);
+        self.cross_validation_plot(mode, y_ref, y_pred, output_dir);
+        return "";
+
+
+    def cross_validation_plot(self, mode, y_ref, y_pred, output_dir):
+        """
+        Plot the different between predicted and measured data
+        """
+        fig, ax = plt.subplots();
+        ax.scatter(y_ref, y_pred, edgecolors=(0, 0, 0));
+        ax.plot([y_ref.min(), y_ref.max()], [y_pred.min(), y_pred.max()], 'k--', lw=4);
+        ax.set_xlabel(mode);
+        ax.set_ylabel('Predicted');
+        if mode == 'train':
+            ax.set_title('Cross Validation Scatter Plot for Training data');
+            filename = os.path.join(output_dir, 'scatter_plot_training.pdf');
+        else:
+            ax.set_title('Cross Validation Scatter Plot for Test data');
+            filename = os.path.join(output_dir, 'scatter_plot_testing.pdf');
+        pdf = PdfPages(filename);
+        pdf.savefig();
+        pdf.close();
+        
+        return filename;
 
 
 def print_help():
