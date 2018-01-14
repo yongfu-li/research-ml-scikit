@@ -31,9 +31,13 @@ def main(*args, **kwargs):
     # Input information
     parser.add_argument('--input_type', \
         dest = 'input_type', \
-        choices = ['demo'], \
+        choices = ['csv','random_signal', 'digits_dataset'], \
         default = 'demo', \
         help = 'Input data type');
+    parser.add_argument('--input_file', \
+        dest = 'input_file', \
+        default = '', \
+        help = 'Input csv file, first column is y label/measurement, remaining columns x data');
     parser.add_argument('--test_size', \
         dest = 'test_size', \
         default = 0.2, \
@@ -79,7 +83,7 @@ def main(*args, **kwargs):
     if not os.path.isdir(args.output_dir):
         os.mkdir(args.output_dir);
     
-    data = Dataset(mode = args.input_type, test_size = args.test_size, output_dir = args.output_dir);
+    data = Dataset(mode = args.input_type, input_file = args.input_file, test_size = args.test_size, output_dir = args.output_dir);
     obj = Model(model = args.model, dataset = data, output_dir = args.output_dir);
     if args.mode == 'train':
         obj.train();
@@ -115,18 +119,65 @@ def load_object(filename):
 class Dataset(object):
     """
     """
-    def __init__(self, mode, test_size = 0.2, output_dir = './work'):
+    def __init__(self, mode, input_file, test_size = 0.2, output_dir = './work'):
         """
         TODO: Plot data
         """
         self.logger = logging.getLogger('Dataset');
         self.logger.info('Initialize dataset');
-        self.output_dir = output_dir;
+        self.mode = mode;
+        self.input_file = input_file;
         self.test_size = test_size;
-        if mode == 'demo':
+        self.output_dir = output_dir;
+        if mode == 'csv':
+            self.read_csv_file(input_file = self.input_file, test_size = self.test_size);
+        elif mode == 'random_signal':
             self.length = 100000;
-            self.demo(length = self.length, test_size = self.test_size);
+            self.random_signal(length = self.length, test_size = self.test_size);
+        elif mode == 'digits_dataset':
+            self.digits_dataset(test_size = self.test_size);
         return;
+
+
+    def read_csv_file(self, input_file, test_size):
+        """
+        Load the file genfromtxt
+        """
+        from numpy import genfromtxt;
+        from sklearn.model_selection import train_test_split;
+        if os.path.exists(input_file):
+            data = genfromtxt(input_file, delimiter=',');
+            y = data[:,0];
+            x = data[:,1:];
+            self.x_train, self.x_test, self.y_train, self.y_test = train_test_split( \
+                x, y, \
+                test_size = test_size, \
+                random_state = 42);
+            return True;
+        else:
+            self.logger.warn('Invalid/Missing csv file');
+            return False;
+
+
+    def digits_dataset(self, test_size):
+        """
+        Each datapoint is a 8x8 image of a digit.
+        * Classes 10
+        * Samples per class ~180
+        * Samples total	1797
+        * Dimensionality 64
+        * Features integers 0-16
+        """
+        from sklearn.datasets import load_digits;
+        from sklearn.model_selection import train_test_split;
+        digits = load_digits();
+        self.x_train, self.x_test, self.y_train, self.y_test = train_test_split( \
+            digits.data, \
+            digits.target, \
+            test_size = test_size, \
+            random_state = 42);
+        return True;
+
 
     def randomize_dataset(self, x, y, test_size):
         """
@@ -138,11 +189,11 @@ class Dataset(object):
         #X_train, X_test, Y_train, Y_test
         return x[ind[ind_cut:]], x[ind[:ind_cut]], y[ind[ind_cut:]], y[ind[:ind_cut]]
 
-    def demo(self, length, test_size):
+    def random_signal_dataset(self, length, test_size):
         """
-        Demo dataset
+        Random Signal dataset
         """
-        from sklearn.model_selection import train_test_split
+        from sklearn.model_selection import train_test_split;
         self.logger.info('Load demo dataset');
         noise = np.random.uniform(-2, 2, length);
         x = np.array([range(length),np.random.uniform(-10, 10, length)]);
@@ -153,7 +204,7 @@ class Dataset(object):
         self.x_train, self.x_test, self.y_train, self.y_test = train_test_split(x, y, \
             test_size = test_size, \
             random_state = 42);
-        return;
+        return True;
 
 class Model(object):
     """
@@ -516,7 +567,7 @@ class Model(object):
             sample_weight = None, \
             multioutput = 'uniform_average');
         self.logger.info('Mean Squared Error (L2 Loss): ' + str(value));
-        return self.mse_value;
+        return value;
 
 
     def mean_squared_log_error(self, y_ref, y_pred):
@@ -648,9 +699,9 @@ class Model(object):
         Perform regression or classification of the test data
         """
         self.logger = logging.getLogger('Model-Prediction');
-        self.logger.info('Input: ' + str(self.x_test));
+        self.logger.info('Input: \n' + str(self.x_test));
         self.predict = self.clf.predict(self.x_test);
-        self.logger.info('Prediction: ' + str(self.predict));
+        self.logger.info('Prediction: \n' + str(self.predict));
         self.scoring(type = self.type, y_ref = self.y_test, y_pred = self.predict);
         self.save_data( \
             x = self.x_test, \
@@ -661,6 +712,7 @@ class Model(object):
 
     def load_data(self, data_file):
         """
+        Load the numpy compressed data file into x and y dataset
         """
         data = np.load(data_file);
         z = data['arr_0'];
@@ -671,6 +723,7 @@ class Model(object):
     
     def save_data(self, x, y, data_file):
         """
+        Save the x and y dataset into compressed array dataset
         """
         z = np.column_stack((y,x));
         np.savez_compressed(data_file, z)
