@@ -50,7 +50,8 @@ def main(*args, **kwargs):
         help = 'Different functions of the program');
     parser.add_argument('--model', \
         dest = 'model', \
-        choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', 'Lasso', \
+        choices  = [ 'linear_model', 'LinearRegression', 'Ridge', 'RidgeCV', \
+            'Lasso', 'MultiTaskLasso', \
             'support_vector_machine', 'SVC', 'NuSVC', 'LinearSVC', \
             'stochastic_gradient_descent', 'SGDClassifier', \
             'gaussian_process', 'GaussianProcessRegressor', 'GaussianProcessClassifier', \
@@ -269,6 +270,7 @@ class Model(object):
         * Ridge (Optimized)
         * RidgeCV (Optimized)
         * Lasso (Optimized)
+        * MultiTaskLasso
     * Linear and Quadratic Discriminant Analysis
     * Kernel ridge regression
     * Support Vector Machines 
@@ -324,6 +326,8 @@ class Model(object):
             self.RidgeCV(x = self.x_train, y = self.y_train);
         elif self.model == 'Lasso':
             self.Lasso(x = self.x_train, y = self.y_train);
+        elif self.model == 'MultiTaskLasso':
+            self.MultiTaskLasso(x = self.x_train, y = self.y_train);
         elif self.model == 'SVC':
             self.SVC(x = self.x_train, y = self.y_train);
         elif self.model == 'NuSVC':
@@ -362,9 +366,9 @@ class Model(object):
         sklearn.linear_model.LinearRegression(fit_intercept=True, normalize=False, copy_X=True, n_jobs=1)
         """
         self.logger.info('Perform Linear Regression');
-        from sklearn import linear_model;
+        from sklearn.linear_model import LinearRegression;
         self.type = 'regression';
-        self.clf = linear_model.LinearRegression(n_jobs = -1);
+        self.clf = LinearRegression(n_jobs = -1);
         self.clf.fit(x, y);
         return self.clf;
 
@@ -409,13 +413,24 @@ class Model(object):
         upon which the given solution is dependent. 
         """
         self.logger.info('Perform Lasso Regression');
-        from sklearn import linear_model;
+        from sklearn.linear_model import Lasso;
         self.type = 'regression';
-        self.clf = linear_model.Lasso(alpha = 0.00001);
+        self.clf = Lasso(alpha = 0.00001);
         self.clf.fit(x, y);
         return self.clf;
 
     
+    def MultiTaskLasso(self, x, y):
+        """
+        Multi-task Lasso model trained with L1/L2 mixed-norm as regularizer
+        """
+        #clf = linear_model.MultiTaskLasso(alpha=0.1)
+        
+        #class sklearn.linear_model.MultiTaskLasso(alpha=1.0, fit_intercept=True, normalize=False, copy_X=True, max_iter=1000, tol=0.0001, warm_start=False, random_state=None, selection=’cyclic’)
+
+        return self.clf;
+
+
     def SVC(self, x, y):
         """
         Support Vector Machine Classifier
