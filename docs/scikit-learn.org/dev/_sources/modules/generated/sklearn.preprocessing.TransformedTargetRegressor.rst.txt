@@ -1,0 +1,16 @@
+:mod:`sklearn.preprocessing`.TransformedTargetRegressor
+==============================================================
+
+.. currentmodule:: sklearn.preprocessing
+
+.. autoclass:: TransformedTargetRegressor
+
+   
+   .. automethod:: __init__
+   
+
+.. include:: sklearn.preprocessing.TransformedTargetRegressor.examples
+
+.. raw:: html
+
+    <div class="clearer"></div>
